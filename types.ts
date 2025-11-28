@@ -3,7 +3,9 @@
 export enum UserRole {
   BUILDER = 'BUILDER',
   BUYER = 'BUYER',
-  MODERATOR = 'MODERATOR'
+  MANAGER = 'MANAGER', // New Distinct Role
+  MODERATOR = 'MODERATOR',
+  ADMIN = 'ADMIN'
 }
 
 export enum ApartmentStatus {
@@ -129,6 +131,27 @@ export interface BuilderApplication {
     timestamp: number;
 }
 
+// Admin Specific Types
+export interface SystemStats {
+    totalUsers: number;
+    totalBuilders: number;
+    totalProjects: number;
+    totalBuildings: number;
+    activeUsersOnline: number;
+    verifiedUsersCount: number;
+    pendingVerifications: number;
+}
+
+export interface AdminUserView {
+    id: string;
+    name: string;
+    role: UserRole;
+    phone: string;
+    status: 'ACTIVE' | 'BLOCKED';
+    isVerified: boolean;
+    joinedDate: number;
+}
+
 // Navigation types
 export type ScreenName = 
   | 'HOME'
@@ -151,4 +174,5 @@ export type ScreenName =
   | 'BUYER_ID_VERIFICATION'
   | 'BUYER_BECOME_BUILDER'
   | 'BUYER_BUILDER_PROFILE'
-  | 'MODERATOR_DASHBOARD';
+  | 'MODERATOR_DASHBOARD'
+  | 'ADMIN_DASHBOARD';

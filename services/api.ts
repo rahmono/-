@@ -1,6 +1,6 @@
 
 
-import { Project, Building, FloorPlan, Apartment, ApartmentStatus, ChatMessage, ChatSession, BuilderCompany, IdVerificationRequest, BuilderApplication, VerificationStatus, Manager, ManagerPermissions } from '../types';
+import { Project, Building, FloorPlan, Apartment, ApartmentStatus, ChatMessage, ChatSession, BuilderCompany, IdVerificationRequest, BuilderApplication, VerificationStatus, Manager, ManagerPermissions, SystemStats, AdminUserView, UserRole } from '../types';
 
 // Mock Builder Companies
 const MOCK_BUILDERS: BuilderCompany[] = [
@@ -81,11 +81,15 @@ const MOCK_FLOOR_PLANS: FloorPlan[] = [
   }
 ];
 
-// Mock Users for Search Simulation
+// Mock Users for Search Simulation and Admin View
+// Added 'status' field to mock users for admin management
 const MOCK_USERS = [
-    { id: 'u_mgr1', name: 'Alice Manager', phone: '999999999', verified: true, avatarUrl: 'https://i.pravatar.cc/150?u=a' },
-    { id: 'u_mgr2', name: 'Bob Sales', phone: '888888888', verified: true, avatarUrl: 'https://i.pravatar.cc/150?u=b' },
-    { id: 'u_user3', name: 'Charlie New', phone: '777777777', verified: false, avatarUrl: 'https://i.pravatar.cc/150?u=c' },
+    { id: 'u_mgr1', name: 'Alice Manager', phone: '+992999999999', verified: true, avatarUrl: 'https://i.pravatar.cc/150?u=a', role: UserRole.MANAGER, status: 'ACTIVE' },
+    { id: 'u_mgr2', name: 'Bob Sales', phone: '+992888888888', verified: true, avatarUrl: 'https://i.pravatar.cc/150?u=b', role: UserRole.MANAGER, status: 'ACTIVE' },
+    { id: 'u_user3', name: 'Charlie New', phone: '+992777777777', verified: false, avatarUrl: 'https://i.pravatar.cc/150?u=c', role: UserRole.BUYER, status: 'ACTIVE' },
+    { id: 'u_mod1', name: 'System Moderator', phone: '+992100100100', verified: true, avatarUrl: 'https://i.pravatar.cc/150?u=m', role: UserRole.MODERATOR, status: 'ACTIVE' },
+    { id: 'c1', name: 'Golden State Rep', phone: '+992555123456', verified: true, avatarUrl: 'https://ui-avatars.com/api/?name=Golden+State&background=fbbf24', role: UserRole.BUILDER, status: 'ACTIVE' },
+    { id: 'c2', name: 'Urban Future Rep', phone: '+992555987654', verified: true, avatarUrl: 'https://ui-avatars.com/api/?name=Urban+Future&background=4f46e5', role: UserRole.BUILDER, status: 'ACTIVE' }
 ];
 
 // In-memory storage simulation
@@ -93,6 +97,8 @@ let projects = [...MOCK_PROJECTS];
 let buildings = [...MOCK_BUILDINGS];
 let floorPlans = [...MOCK_FLOOR_PLANS];
 let managers: Manager[] = [];
+// This needs to be mutable to support registration
+let users = [...MOCK_USERS]; 
 
 // Mock Messages Store: { chatId: ChatMessage[] }
 let messages: Record<string, ChatMessage[]> = {
@@ -122,6 +128,30 @@ export const subscribe = (listener: Listener) => {
 };
 
 export const api = {
+  // --- AUTH API ---
+  loginOrRegister: async (phone: string): Promise<{user: any, isNew: boolean}> => {
+      await delay(800);
+      const existingUser = users.find(u => u.phone === phone);
+      
+      if (existingUser) {
+          return { user: existingUser, isNew: false };
+      } else {
+          // Register new user
+          const newUser = {
+              id: 'u_' + Math.random().toString(36).substr(2, 9),
+              name: '', // Empty name as requested, set later by verify or profile
+              phone: phone,
+              verified: false,
+              avatarUrl: `https://ui-avatars.com/api/?name=User&background=random`,
+              role: UserRole.BUYER,
+              status: 'ACTIVE'
+          };
+          users.push(newUser);
+          notifyListeners();
+          return { user: newUser, isNew: true };
+      }
+  },
+
   getProjects: async (): Promise<Project[]> => {
     await delay(300);
     return projects;
@@ -147,7 +177,12 @@ export const api = {
 
   getBuilderProjects: async (builderId: string): Promise<Project[]> => {
       await delay(200);
-      return projects.filter(p => p.builderId === builderId);
+      
+      // Check if this ID is a manager
+      const manager = managers.find(m => m.userId === builderId);
+      const targetId = manager ? manager.builderId : builderId;
+
+      return projects.filter(p => p.builderId === targetId);
   },
 
   getBuildings: async (projectId: string): Promise<Building[]> => {
@@ -267,7 +302,8 @@ export const api = {
     }[] = [];
 
     for (const fp of floorPlans) {
-        const userApts = fp.apartments.filter(a => a.ownerId === userId && (a.status === ApartmentStatus.SOLD || a.status === ApartmentStatus.RESERVED));
+        // Include PENDING so user can see what they are waiting on
+        const userApts = fp.apartments.filter(a => a.ownerId === userId && (a.status === ApartmentStatus.SOLD || a.status === ApartmentStatus.RESERVED || a.status === ApartmentStatus.PENDING));
         if (userApts.length > 0) {
             const building = buildings.find(b => b.id === fp.buildingId);
             const project = projects.find(p => p.id === building?.projectId);
@@ -286,12 +322,65 @@ export const api = {
     return owned;
   },
 
+  // Get all PENDING claims for a builder (aggregating across all their projects)
+  getBuilderPendingClaims: async (builderId: string) => {
+      await delay(300);
+      // 1. Get all projects by this builder
+      const builderProjects = projects.filter(p => p.builderId === builderId);
+      const builderProjectIds = builderProjects.map(p => p.id);
+
+      // 2. Get all buildings in these projects
+      const builderBuildings = buildings.filter(b => builderProjectIds.includes(b.projectId));
+      const builderBuildingIds = builderBuildings.map(b => b.id);
+
+      // 3. Find floorplans for these buildings
+      const builderFloorPlans = floorPlans.filter(fp => builderBuildingIds.includes(fp.buildingId));
+
+      const claims: {
+          apartment: Apartment;
+          floorPlanId: string;
+          buildingName: string;
+          projectName: string;
+          user: { name: string, phone: string, avatarUrl: string } | null;
+      }[] = [];
+
+      for (const fp of builderFloorPlans) {
+          const pendingApts = fp.apartments.filter(a => a.status === ApartmentStatus.PENDING);
+          
+          if (pendingApts.length > 0) {
+              const building = builderBuildings.find(b => b.id === fp.buildingId);
+              const project = builderProjects.find(p => p.id === building?.projectId);
+              
+              if (building && project) {
+                  for (const apt of pendingApts) {
+                      // Simulate fetching user details
+                      const user = users.find(u => u.id === apt.ownerId);
+                      claims.push({
+                          apartment: apt,
+                          floorPlanId: fp.id,
+                          buildingName: building.name,
+                          projectName: project.name,
+                          user: user ? { name: user.name, phone: user.phone, avatarUrl: user.avatarUrl } : null
+                      });
+                  }
+              }
+          }
+      }
+      return claims;
+  },
+
   // --- Manager API ---
+
+  // Check if a user is a manager for any builder
+  getManagerProfile: async (userId: string): Promise<Manager | undefined> => {
+      await delay(200);
+      return managers.find(m => m.userId === userId);
+  },
 
   // Simulate searching a user database
   searchUserByPhone: async (phone: string) => {
       await delay(300);
-      return MOCK_USERS.find(u => u.phone === phone);
+      return users.find(u => u.phone === phone);
   },
 
   addManager: async (builderId: string, userId: string, userInfo: {name: string, avatarUrl: string, phone: string}, permissions: ManagerPermissions) => {
@@ -306,6 +395,13 @@ export const api = {
           permissions
       };
       managers = [...managers, newManager];
+      
+      // Upgrade user role
+      const userIdx = users.findIndex(u => u.id === userId);
+      if (userIdx !== -1) {
+          users[userIdx] = { ...users[userIdx], role: UserRole.MANAGER };
+      }
+
       notifyListeners();
       return newManager;
   },
@@ -317,13 +413,21 @@ export const api = {
 
   removeManager: async (managerId: string) => {
       await delay(200);
+      const mgr = managers.find(m => m.id === managerId);
+      if (mgr) {
+          const userIdx = users.findIndex(u => u.id === mgr.userId);
+          if (userIdx !== -1) {
+              // Revert to buyer
+              users[userIdx] = { ...users[userIdx], role: UserRole.BUYER };
+          }
+      }
       managers = managers.filter(m => m.id !== managerId);
       notifyListeners();
   },
 
   // --- Chat API ---
 
-  // Get list of chats relevant to the user (or builder)
+  // Get list of chats relevant to the user (or builder/manager)
   getUserChats: async (userId: string): Promise<ChatSession[]> => {
       await delay(200);
       const chatSessions: ChatSession[] = [];
@@ -331,6 +435,9 @@ export const api = {
       // Check if user is actually a builder (by checking if they own projects)
       const ownedProjects = projects.filter(p => p.builderId === userId);
       const isBuilder = ownedProjects.length > 0;
+      
+      // Check if user is a manager
+      const manager = managers.find(m => m.userId === userId);
 
       if (isBuilder) {
           // BUILDER LOGIC
@@ -365,6 +472,44 @@ export const api = {
                   }
               }
           });
+
+      } else if (manager) {
+          // MANAGER LOGIC
+
+          const employerProjects = projects.filter(p => p.builderId === manager.builderId);
+
+          // 1. Community Chats for employer projects (if manager has permission)
+          // Even if they don't have write permission, they might see it? 
+          // Requirement says "Write in chats" permission. We'll show them to all managers, but restrict writing in UI.
+          employerProjects.forEach(p => {
+             chatSessions.push({
+                  id: p.id,
+                  type: 'COMMUNITY',
+                  name: p.name,
+                  subtext: manager.permissions.canChatCommunity ? 'Manager Access' : 'Read Only',
+                  projectId: p.id
+              }); 
+          });
+
+          // 2. Support Chats (if manager has permission)
+          if (manager.permissions.canSupportChat) {
+              activeSupportChats.forEach(chatId => {
+                  const parts = chatId.split('_');
+                  if (parts.length === 3) {
+                      const projectId = parts[1];
+                      const project = employerProjects.find(p => p.id === projectId);
+                      if (project) {
+                          chatSessions.push({
+                              id: chatId,
+                              type: 'SUPPORT',
+                              name: `Support: ${project.name}`,
+                              subtext: 'Buyer Inquiry (Manager)',
+                              projectId: projectId
+                          });
+                      }
+                  }
+              });
+          }
 
       } else {
           // BUYER LOGIC
@@ -465,6 +610,7 @@ export const api = {
       const projectFloorPlans = floorPlans.filter(fp => projectBuildingIds.includes(fp.buildingId));
       
       for (const fp of projectFloorPlans) {
+          // PENDING does not grant access yet! Only SOLD or RESERVED (approved)
           const hasApartment = fp.apartments.some(a => a.ownerId === userId && (a.status === ApartmentStatus.RESERVED || a.status === ApartmentStatus.SOLD));
           if (hasApartment) return true;
       }
@@ -515,6 +661,11 @@ export const api = {
       const idx = verificationRequests.findIndex(r => r.id === id);
       if (idx !== -1) {
           verificationRequests[idx].status = approved ? 'APPROVED' : 'REJECTED';
+          // Also update user's verified status in local store
+          if (approved) {
+              const uIdx = users.findIndex(u => u.id === verificationRequests[idx].userId);
+              if (uIdx !== -1) users[uIdx].verified = true;
+          }
           notifyListeners();
       }
   },
@@ -524,6 +675,11 @@ export const api = {
       const idx = builderApplications.findIndex(a => a.id === id);
       if (idx !== -1) {
           builderApplications[idx].status = approved ? 'APPROVED' : 'REJECTED';
+           // Also update user's role if approved
+           if (approved) {
+               const uIdx = users.findIndex(u => u.id === builderApplications[idx].userId);
+               if (uIdx !== -1) users[uIdx].role = UserRole.BUILDER;
+           }
           notifyListeners();
       }
   },
@@ -538,7 +694,11 @@ export const api = {
       // Check ID Verification
       const idReq = verificationRequests.find(r => r.userId === userId);
       let verification: VerificationStatus = 'BASIC';
-      if (idReq) {
+      
+      // Also check user's direct object in case they were verified before or via moderator action
+      const user = users.find(u => u.id === userId);
+      if (user?.verified) verification = 'VERIFIED';
+      else if (idReq) {
           if (idReq.status === 'APPROVED') verification = 'VERIFIED';
           else if (idReq.status === 'PENDING') verification = 'PENDING';
       }
@@ -552,8 +712,56 @@ export const api = {
           } else {
               builderApp = buildApp.status;
           }
+      } else if (user?.role === UserRole.BUILDER) {
+          builderApp = 'APPROVED';
       }
 
       return { verification, builderApp };
+  },
+
+  // --- ADMIN API ---
+
+  getSystemStats: async (): Promise<SystemStats> => {
+      await delay(300);
+      
+      // Calculate active verified users
+      const verifiedUsers = users.filter(u => u.verified).length + verificationRequests.filter(r => r.status === 'APPROVED').length;
+      const builders = MOCK_BUILDERS.length + builderApplications.filter(a => a.status === 'APPROVED').length;
+
+      return {
+          totalUsers: users.length, 
+          totalBuilders: builders,
+          totalProjects: projects.length,
+          totalBuildings: buildings.length,
+          activeUsersOnline: Math.floor(Math.random() * 50) + 10,
+          verifiedUsersCount: verifiedUsers,
+          pendingVerifications: verificationRequests.filter(r => r.status === 'PENDING').length
+      };
+  },
+
+  getAdminUserList: async (): Promise<AdminUserView[]> => {
+      await delay(300);
+      // Combine mock users with simulated generic users
+      const userList: AdminUserView[] = users.map(u => ({
+          id: u.id,
+          name: u.name || 'User (No Name)',
+          role: u.role,
+          phone: u.phone,
+          status: (u.status as 'ACTIVE' | 'BLOCKED') || 'ACTIVE',
+          isVerified: u.verified,
+          joinedDate: Date.now() - Math.floor(Math.random() * 10000000000)
+      }));
+
+      return userList;
+  },
+
+  // Admin Update User Method
+  updateUser: async (userId: string, updates: Partial<any>): Promise<void> => {
+    await delay(300);
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex !== -1) {
+        users[userIndex] = { ...users[userIndex], ...updates };
+        notifyListeners();
+    }
   }
 };

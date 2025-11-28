@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from '../types';
 import { api, subscribe } from '../services/api';
@@ -7,11 +5,11 @@ import { Send, Paperclip, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/i18n';
 
 interface ChatRoomProps {
-  chatId: string; // Generic Chat ID (could be projectId or support_id)
+  chatId: string;
   chatName: string;
   userId: string;
-  isOwner: boolean; // Controls read-only mode for community chats
-  isSupportChat?: boolean; // If true, always allow writing
+  isOwner: boolean;
+  isSupportChat?: boolean;
   onClose: () => void;
   lang: Language;
 }
@@ -52,7 +50,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
     await api.sendMessage(chatId, {
         chatId: chatId,
         senderId: userId,
-        senderName: 'Me', // In real app, fetch user profile name
+        senderName: 'Me',
         text: inputText,
         type: 'text'
     });
@@ -63,8 +61,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Simulate image upload by creating a local URL
-    // In production, this would upload to storage and return a real URL
     const reader = new FileReader();
     reader.onloadend = async () => {
         const base64String = reader.result as string;
@@ -77,7 +73,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
         });
     };
     reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const formatTime = (timestamp: number) => {
@@ -85,16 +81,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950">
+    <div className="flex flex-col h-full bg-white dark:bg-black">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center gap-3 shadow-sm sticky top-0 z-20">
-        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition">
-           <ArrowLeft size={20} className="text-slate-600 dark:text-slate-300" />
+      <div className="bg-white dark:bg-black border-b border-slate-100 dark:border-slate-900 p-4 flex items-center gap-4 sticky top-0 z-20">
+        <button onClick={onClose} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full p-1 transition">
+           <ArrowLeft size={24} className="text-slate-900 dark:text-white" />
         </button>
         <div className="flex-1">
-            <h2 className="font-bold text-slate-800 dark:text-white">{chatName}</h2>
-            <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <h2 className="font-semibold text-slate-900 dark:text-white text-base leading-tight">{chatName}</h2>
+            <div className="flex items-center gap-1.5 mt-0.5">
+                <div className={`w-1.5 h-1.5 rounded-full ${isSupportChat ? 'bg-blue-500' : 'bg-green-500'}`}></div>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
                     {isSupportChat ? t.supportChat : (canWrite ? t.communityChat : t.readOnly)}
                 </span>
@@ -103,22 +99,15 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
       </div>
 
       {/* Messages Area */}
-      <div 
-        className="flex-grow overflow-y-auto p-4 space-y-3" 
-        style={{ backgroundImage: 'radial-gradient(var(--dot-color, #cbd5e1) 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-      >
-        <style>{`
-          .dark .bg-slate-100 { --dot-color: #334155; }
-          :not(.dark) .bg-slate-100 { --dot-color: #cbd5e1; }
-        `}</style>
-        {loading && <div className="text-center text-slate-400 py-4">{t.loading}</div>}
+      <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-white dark:bg-black">
+        {loading && <div className="text-center text-slate-400 text-sm py-4">{t.loading}</div>}
         
         {!loading && messages.length === 0 && (
-            <div className="text-center text-slate-400 py-10 flex flex-col items-center">
-                <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-full mb-3">
-                    <Send size={24} className="text-slate-400" />
+            <div className="text-center text-slate-400 py-20 flex flex-col items-center">
+                <div className="w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
+                    <Send size={20} className="text-slate-300 dark:text-slate-600" />
                 </div>
-                <p>{t.noMessages} {canWrite ? t.beFirst : ''}</p>
+                <p className="text-sm">{t.noMessages}</p>
             </div>
         )}
 
@@ -126,22 +115,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
             const isMe = msg.senderId === userId;
             return (
                 <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
                         isMe 
-                        ? 'bg-indigo-600 text-white rounded-tr-none' 
-                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-100 dark:border-slate-700'
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-black rounded-br-none' 
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-bl-none'
                     }`}>
-                        {!isMe && <div className="text-xs font-bold text-indigo-500 dark:text-indigo-400 mb-1">{msg.senderName}</div>}
+                        {!isMe && <div className="text-xs font-semibold opacity-70 mb-1">{msg.senderName}</div>}
                         
                         {msg.type === 'image' && msg.imageUrl && (
-                            <div className="mb-2 rounded-lg overflow-hidden">
+                            <div className="mb-2 rounded-lg overflow-hidden border border-white/10 dark:border-black/10">
                                 <img src={msg.imageUrl} alt="Shared" className="max-w-full h-auto" />
                             </div>
                         )}
                         
-                        {msg.text && <p className="leading-snug">{msg.text}</p>}
+                        {msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
                         
-                        <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
+                        <div className={`text-[10px] mt-1 text-right opacity-50`}>
                             {formatTime(msg.timestamp)}
                         </div>
                     </div>
@@ -152,7 +141,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
       </div>
 
       {/* Input Area */}
-      <div className="bg-white dark:bg-slate-900 p-3 border-t border-slate-200 dark:border-slate-800 pb-safe">
+      <div className="bg-white dark:bg-black p-3 border-t border-slate-100 dark:border-slate-900 pb-safe">
         {canWrite ? (
             <div className="flex items-end gap-2">
                 <input 
@@ -164,30 +153,30 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ chatId, chatName, userId, is
                 />
                 <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-3 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition"
+                    className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-full transition"
                 >
                     <Paperclip size={20} />
                 </button>
-                <div className="flex-grow bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center px-4 py-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition">
+                <div className="flex-grow bg-slate-100 dark:bg-slate-900 rounded-3xl flex items-center px-4 py-2 focus-within:ring-1 focus-within:ring-slate-300 dark:focus-within:ring-slate-700 transition">
                     <input
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                         placeholder={t.chatPlaceholder}
-                        className="w-full bg-transparent outline-none text-slate-800 dark:text-white placeholder:text-slate-400"
+                        className="w-full bg-transparent outline-none text-slate-900 dark:text-white placeholder:text-slate-400 text-sm"
                     />
                 </div>
                 <button 
                     onClick={handleSend}
                     disabled={!inputText.trim()}
-                    className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition shadow-md"
+                    className="p-3 bg-slate-900 dark:bg-white text-white dark:text-black rounded-full hover:opacity-90 disabled:opacity-50 transition"
                 >
-                    <Send size={20} />
+                    <Send size={18} />
                 </button>
             </div>
         ) : (
-            <div className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-center py-3 rounded-xl text-sm border border-slate-200 dark:border-slate-700">
+            <div className="text-slate-400 text-center py-3 text-sm italic">
                 {t.ownerOnly}
             </div>
         )}

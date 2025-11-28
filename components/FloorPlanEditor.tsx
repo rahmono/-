@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Point, Apartment, ApartmentStatus } from '../types';
 import { Trash2, Check, Plus, X } from 'lucide-react';
@@ -25,7 +24,6 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
 
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Convert mouse/touch event to percentage coordinates (0-100)
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent): Point => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
@@ -59,7 +57,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
   const saveNewApartment = () => {
     const newApt: Apartment = {
       id: Math.random().toString(36).substr(2, 9),
-      floorPlanId: '', // Assigned by parent
+      floorPlanId: '',
       unitNumber: formData.unitNumber,
       rooms: formData.rooms,
       areaSqFt: formData.areaSqFt,
@@ -90,7 +88,6 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
 
   const pointsToString = (points: Point[]) => points.map(p => `${p.x},${p.y}`).join(' ');
 
-  // Helper to find center of polygon for text placement
   const getPolygonCenter = (points: Point[]): Point => {
     if (points.length === 0) return { x: 0, y: 0 };
     const x = points.reduce((sum, p) => sum + p.x, 0) / points.length;
@@ -99,16 +96,16 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-black">
       {/* Toolbar */}
-      <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 shadow-sm z-10 sticky top-0 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-3 shadow-sm z-10 sticky top-0 border-b border-slate-200 dark:border-slate-800">
         <div className="flex gap-2">
           {!isDrawing && !showForm && (
             <button 
               onClick={() => setIsDrawing(true)}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md font-medium hover:bg-indigo-700 transition"
+              className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg font-medium hover:opacity-90 transition text-sm"
             >
-              <Plus size={18} /> {t.drawApt}
+              <Plus size={16} /> {t.drawApt}
             </button>
           )}
           {isDrawing && (
@@ -116,28 +113,26 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
               <button 
                 onClick={handleFinishShape}
                 disabled={currentPoints.length < 3}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition"
+                className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition text-sm"
               >
-                <Check size={18} /> {t.finish}
+                <Check size={16} /> {t.finish}
               </button>
               <button 
                 onClick={cancelDrawing}
-                className="flex items-center gap-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-md font-medium hover:bg-slate-300 dark:hover:bg-slate-600 transition"
+                className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition text-sm"
               >
-                <X size={18} /> {t.cancel}
+                <X size={16} /> {t.cancel}
               </button>
             </div>
           )}
         </div>
-        <div className="text-sm text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
           {isDrawing ? t.tapPoints : t.selectArea}
         </div>
       </div>
 
-      {/* Editor Canvas - Scrollable Area */}
-      <div className="flex-grow overflow-auto p-2 sm:p-4">
-        {/* Container that hugs the image size naturally */}
-        <div className="relative w-full shadow-lg bg-white dark:bg-slate-800">
+      <div className="flex-grow overflow-auto p-4 bg-slate-100 dark:bg-black">
+        <div className="relative w-full shadow-sm bg-white dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
           <img 
             src={imageUrl} 
             alt="Floor Plan" 
@@ -145,7 +140,6 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
             style={{ display: 'block' }}
           />
           
-          {/* SVG Overlay matches image dimensions exactly via absolute positioning on the relative wrapper */}
           <svg 
             ref={svgRef}
             className={`absolute top-0 left-0 w-full h-full ${isDrawing ? 'cursor-crosshair' : 'cursor-default'}`}
@@ -153,23 +147,21 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
             preserveAspectRatio="none"
             onClick={handleSvgClick}
           >
-            {/* Existing Apartments */}
             {apartments.map(apt => {
               const center = getPolygonCenter(apt.shape);
               return (
                 <g key={apt.id}>
                   <polygon
                     points={pointsToString(apt.shape)}
-                    fill={selectedApartmentId === apt.id ? 'rgba(79, 70, 229, 0.5)' : 'rgba(79, 70, 229, 0.2)'}
-                    stroke="#4338ca"
-                    strokeWidth="0.5"
+                    fill={selectedApartmentId === apt.id ? 'rgba(30, 41, 59, 0.6)' : 'rgba(30, 41, 59, 0.3)'}
+                    stroke="#1e293b"
+                    strokeWidth="0.3"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!isDrawing) setSelectedApartmentId(apt.id);
                     }}
-                    className="hover:fill-indigo-400/50 transition-colors"
+                    className="hover:fill-slate-600/50 transition-colors"
                   />
-                  {/* Unit Number Label */}
                   <text
                     x={center.x}
                     y={center.y}
@@ -178,10 +170,9 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
                     fontSize="3"
                     fill="white"
                     stroke="black"
-                    strokeWidth="0.1"
+                    strokeWidth="0.05"
                     fontWeight="bold"
                     pointerEvents="none"
-                    style={{ textShadow: '0px 0px 2px rgba(0,0,0,0.8)' }}
                   >
                     {apt.unitNumber}
                   </text>
@@ -189,7 +180,6 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
               );
             })}
 
-            {/* Current Drawing Line */}
             {currentPoints.length > 0 && (
               <>
                 <polyline
@@ -208,66 +198,64 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
         </div>
       </div>
 
-      {/* Apartment Details Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-700">
-            <h3 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">{t.aptDetails}</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-slate-200 dark:border-slate-800">
+            <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">{t.aptDetails}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t.unitNum}</label>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{t.unitNum}</label>
                 <input 
                   type="text" 
                   value={formData.unitNumber}
                   onChange={e => setFormData({...formData, unitNumber: e.target.value})}
-                  className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-black dark:text-white rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white transition text-sm"
                   placeholder="e.g. 01"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t.rooms}</label>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{t.rooms}</label>
                   <input 
                     type="number" 
                     value={formData.rooms}
                     onChange={e => setFormData({...formData, rooms: parseInt(e.target.value)})}
-                    className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md p-2"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-black dark:text-white rounded-lg p-2.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t.area}</label>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{t.area}</label>
                   <input 
                     type="number" 
                     value={formData.areaSqFt}
                     onChange={e => setFormData({...formData, areaSqFt: parseInt(e.target.value)})}
-                    className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md p-2"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-black dark:text-white rounded-lg p-2.5 text-sm"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t.price} ($)</label>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{t.price} ($)</label>
                 <input 
                   type="number" 
                   value={formData.price}
                   onChange={e => setFormData({...formData, price: parseInt(e.target.value)})}
-                  className="mt-1 w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-md p-2"
+                  className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-black dark:text-white rounded-lg p-2.5 text-sm"
                 />
               </div>
             </div>
             <div className="mt-6 flex gap-3">
-              <button onClick={saveNewApartment} className="flex-1 bg-indigo-600 text-white py-2 rounded-md font-medium hover:bg-indigo-700">{t.saveApt}</button>
-              <button onClick={cancelDrawing} className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 py-2 rounded-md font-medium hover:bg-slate-300 dark:hover:bg-slate-600">{t.discard}</button>
+              <button onClick={saveNewApartment} className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-black py-2.5 rounded-lg font-semibold hover:opacity-90 transition text-sm">{t.saveApt}</button>
+              <button onClick={cancelDrawing} className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white py-2.5 rounded-lg font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition text-sm">{t.discard}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Selected Apartment Actions */}
       {selectedApartmentId && !isDrawing && !showForm && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 px-6 py-4 rounded-xl shadow-xl flex items-center gap-6 z-40 border border-slate-100 dark:border-slate-700">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 px-6 py-4 rounded-full shadow-xl flex items-center gap-6 z-40 border border-slate-200 dark:border-slate-800">
            <div>
-             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{t.selectedUnit}</div>
-             <div className="font-bold text-lg text-slate-900 dark:text-white">
+             <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">{t.selectedUnit}</div>
+             <div className="font-bold text-lg text-slate-900 dark:text-white leading-none">
                {apartments.find(a => a.id === selectedApartmentId)?.unitNumber}
              </div>
            </div>
@@ -275,13 +263,13 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({ imageUrl, apar
              onClick={() => deleteApartment(selectedApartmentId)}
              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition"
            >
-             <Trash2 size={24} />
+             <Trash2 size={20} />
            </button>
            <button 
              onClick={() => setSelectedApartmentId(null)}
-             className="text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 p-2 rounded-full"
+             className="text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-full transition"
            >
-             <X size={24} />
+             <X size={20} />
            </button>
         </div>
       )}
